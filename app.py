@@ -36,14 +36,18 @@ def load_data():
 
 df_raw = load_data()
 
-# --- 3. LIMPIEZA Y NORMALIZACIÓN ---
+# --- 3. LIMPIEZA Y NORMALIZACIÓN (INTELIGENTE) ---
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
-    """Convierte texto o números a float limpio"""
+    """Convierte texto o números a float respetando porcentajes pequeños"""
     if pd.isna(x): return 0.0
     
+    # Bandera para saber si ya venía con %
+    tiene_simbolo = False
+    
     if isinstance(x, str):
+        if '%' in x: tiene_simbolo = True
         clean_val = x.replace('%', '').replace('"', '').replace(',', '.').strip()
         if clean_val == '' or clean_val == '-': return 0.0
         try:
@@ -52,9 +56,15 @@ def normalizar_porcentaje(x):
     else:
         val = float(x)
     
-    # Corrección de escala (0.95 -> 95.0)
+    # REGLA DE ORO:
+    # 1. Si tenía símbolo % (ej: "0.48%"), confiamos en el número tal cual (0.48).
+    if tiene_simbolo:
+        return val
+        
+    # 2. Si NO tenía símbolo (era un decimal ej: 0.95), y es pequeño, escalamos a 95.0.
     if abs(val) <= 1.5 and val != 0: 
         return val * 100
+        
     return val
 
 meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -165,7 +175,7 @@ if indicador_sel != "Todos" and len(df_filtered) == 1:
     fig_ind.add_trace(go.Scatter(
         x=meses, y=vals, mode='lines+markers+text',
         name='Real', line=dict(color='#1f77b4', width=3),
-        text=[f"{v:.0f}%" for v in vals], textposition="top center"
+        text=[f"{v:.2f}%" for v in vals], textposition="top center"
     ))
     fig_ind.add_hline(y=row['Meta'], line_dash="dash", line_color="red", annotation_text=f"Meta: {row['Meta']}%")
     fig_ind.update_layout(height=350, margin=dict(t=10, b=10))
@@ -180,7 +190,6 @@ def colorear_estado(val):
     color = '#d32f2f' if 'No' in str(val) else '#2e7d32' 
     return f'color: {color}; font-weight: bold'
 
-# Tabla renderizada
 st.dataframe(
     df_filtered[cols_mostrar].style.applymap(colorear_estado, subset=['Estado Actual'])
     .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%"}), 
@@ -196,20 +205,18 @@ st.dataframe(
     }
 )
 
-# --- 9. GRÁFICO COMPARATIVO (AQUÍ ESTABA EL PROBLEMA ANTES) ---
+# --- 9. GRÁFICO COMPARATIVO ---
 if len(df_filtered) > 1:
     st.subheader("📊 Comparativo: Meta vs Resultado")
     
     fig_bar = go.Figure()
     
-    # Barra 1: Meta
     fig_bar.add_trace(go.Bar(
         x=df_filtered['Indicador'], y=df_filtered['Meta'], 
         name='Meta', marker_color='lightgray', 
         text=df_filtered['Meta'], texttemplate='%{text:.2f}%'
     ))
     
-    # Barra 2: Realidad
     fig_bar.add_trace(go.Bar(
         x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], 
         name='Resultado Real', marker_color='#059669', 
@@ -218,5 +225,4 @@ if len(df_filtered) > 1:
     
     fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
     
-    # Esta es la línea que dibuja el gráfico. Si falta o está mal escrita, sale el error.
     st.plotly_chart(fig_bar, use_container_width=True)
