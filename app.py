@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="BSC Gráficas Modernas 2026", layout="wide", page_icon="📊")
 
 # Estilos CSS
@@ -15,10 +15,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CARGA DE DATOS (CONECTADO A LA NUBE ☁️)
+# --- 2. CARGA DE DATOS (NUBE) ---
 @st.cache_data(ttl=60)
 def load_data():
-    # Enlace directo a tu Google Sheet (CSV)
+    # Tu enlace a Google Sheets
     url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTExBommhNOhtmWDQy-wzCb24jRtR1CLxfH1xzkmoFvodW-AannKBqZshXAdXIADXq5M9_rdm_XMTgr/pub?gid=228314910&single=true&output=csv"
     
     try:
@@ -36,11 +36,11 @@ def load_data():
 
 df_raw = load_data()
 
-# 3. LIMPIEZA Y NORMALIZACIÓN
+# --- 3. LIMPIEZA Y NORMALIZACIÓN ---
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
-    """Convierte texto o números a un float limpio"""
+    """Convierte texto o números a float limpio"""
     if pd.isna(x): return 0.0
     
     if isinstance(x, str):
@@ -52,6 +52,7 @@ def normalizar_porcentaje(x):
     else:
         val = float(x)
     
+    # Corrección de escala (0.95 -> 95.0)
     if abs(val) <= 1.5 and val != 0: 
         return val * 100
     return val
@@ -67,7 +68,7 @@ if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
 
-# 4. BARRA LATERAL (FILTROS)
+# --- 4. BARRA LATERAL (FILTROS) ---
 with st.sidebar:
     st.header("🔍 Filtros de Navegación")
     st.divider()
@@ -90,13 +91,12 @@ df_filtered = df_temp2.copy()
 if indicador_sel != "Todos":
     df_filtered = df_filtered[df_filtered['Indicador'] == indicador_sel]
 
-# 5. TÍTULO Y ESTADÍSTICAS GENERALES
+# --- 5. TÍTULO Y ESTADÍSTICAS ---
 st.title("📊 Tablero de Mando Integral 2026")
 subtitulo = indicador_sel if indicador_sel != "Todos" else (proceso_sel if proceso_sel != "Todos" else "Visión Global")
 st.markdown(f"**Vista Actual:** {subtitulo}")
 st.divider()
 
-# --- SECCIÓN DE ESTADÍSTICAS ---
 if len(df_filtered) > 1:
     col1, col2, col3, col4 = st.columns(4)
     
@@ -128,7 +128,7 @@ if len(df_filtered) > 1:
     st.info(f"🏆 **Mejor Desempeño:** {mejor_kpi} (**{val_mejor:.1f}%**)")
     st.divider()
 
-# 6. SECCIÓN DE ALERTAS
+# --- 6. SECCIÓN DE ALERTAS ---
 kpis_rojos = df_filtered[df_filtered['Estado Actual'].astype(str).str.contains("No", case=False)]
 
 if indicador_sel == "Todos" and len(kpis_rojos) > 0:
@@ -149,7 +149,7 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     )
     st.divider()
 
-# 7. GRÁFICO TENDENCIA (INDIVIDUAL)
+# --- 7. GRÁFICO TENDENCIA (INDIVIDUAL) ---
 if indicador_sel != "Todos" and len(df_filtered) == 1:
     row = df_filtered.iloc[0]
     st.subheader(f"📈 Tendencia Mensual: {row['Indicador']}")
@@ -171,7 +171,7 @@ if indicador_sel != "Todos" and len(df_filtered) == 1:
     fig_ind.update_layout(height=350, margin=dict(t=10, b=10))
     st.plotly_chart(fig_ind, use_container_width=True)
 
-# 8. TABLA DE DETALLE
+# --- 8. TABLA DE DETALLE ---
 st.subheader("📋 Detalle de Indicadores")
 cols_mostrar = ['Indicador', 'Meta', 'Prom. Año', 'Cumpl. Año', 'Estado Actual']
 if indicador_sel != "Todos": cols_mostrar += meses
@@ -180,7 +180,7 @@ def colorear_estado(val):
     color = '#d32f2f' if 'No' in str(val) else '#2e7d32' 
     return f'color: {color}; font-weight: bold'
 
-# AQUI ESTABA EL ERROR ANTES, VERIFICA QUE COPIES HASTA EL CIERRE DEL PARÉNTESIS ')'
+# Tabla renderizada
 st.dataframe(
     df_filtered[cols_mostrar].style.applymap(colorear_estado, subset=['Estado Actual'])
     .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%"}), 
@@ -194,21 +194,29 @@ st.dataframe(
         ),
         "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
     }
-) 
+)
 
-# 9. GRÁFICO COMPARATIVO
+# --- 9. GRÁFICO COMPARATIVO (AQUÍ ESTABA EL PROBLEMA ANTES) ---
 if len(df_filtered) > 1:
     st.subheader("📊 Comparativo: Meta vs Resultado")
+    
     fig_bar = go.Figure()
+    
+    # Barra 1: Meta
     fig_bar.add_trace(go.Bar(
         x=df_filtered['Indicador'], y=df_filtered['Meta'], 
         name='Meta', marker_color='lightgray', 
         text=df_filtered['Meta'], texttemplate='%{text:.2f}%'
     ))
+    
+    # Barra 2: Realidad
     fig_bar.add_trace(go.Bar(
         x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], 
         name='Resultado Real', marker_color='#059669', 
         text=df_filtered['Prom. Año'], texttemplate='%{text:.2f}%'
     ))
+    
     fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
-    st
+    
+    # Esta es la línea que dibuja el gráfico. Si falta o está mal escrita, sale el error.
+    st.plotly_chart(fig_bar, use_container_width=True)
