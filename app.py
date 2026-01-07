@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="BSC Gráficas Modernas 2026", layout="wide", page_icon="📊")
@@ -18,16 +19,13 @@ st.markdown("""
 # --- 2. CARGA DE DATOS (NUBE) ---
 @st.cache_data(ttl=60)
 def load_data():
-    # Tu enlace a Google Sheets
     url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTExBommhNOhtmWDQy-wzCb24jRtR1CLxfH1xzkmoFvodW-AannKBqZshXAdXIADXq5M9_rdm_XMTgr/pub?gid=228314910&single=true&output=csv"
-    
     try:
         try:
             df = pd.read_csv(url, sep=',')
             if 'Proceso' not in df.columns: raise ValueError()
         except:
             df = pd.read_csv(url, sep=';')
-            
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
@@ -36,16 +34,12 @@ def load_data():
 
 df_raw = load_data()
 
-# --- 3. LIMPIEZA Y NORMALIZACIÓN (INTELIGENTE) ---
+# --- 3. LIMPIEZA Y NORMALIZACIÓN ---
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
-    """Convierte texto o números a float respetando porcentajes pequeños"""
     if pd.isna(x): return 0.0
-    
-    # Bandera para saber si ya venía con %
     tiene_simbolo = False
-    
     if isinstance(x, str):
         if '%' in x: tiene_simbolo = True
         clean_val = x.replace('%', '').replace('"', '').replace(',', '.').strip()
@@ -56,15 +50,8 @@ def normalizar_porcentaje(x):
     else:
         val = float(x)
     
-    # REGLA DE ORO:
-    # 1. Si tenía símbolo % (ej: "0.48%"), confiamos en el número tal cual (0.48).
-    if tiene_simbolo:
-        return val
-        
-    # 2. Si NO tenía símbolo (era un decimal ej: 0.95), y es pequeño, escalamos a 95.0.
-    if abs(val) <= 1.5 and val != 0: 
-        return val * 100
-        
+    if tiene_simbolo: return val
+    if abs(val) <= 1.5 and val != 0: return val * 100
     return val
 
 meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -78,10 +65,18 @@ if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
 
-# --- 4. BARRA LATERAL (FILTROS) ---
+# --- 4. BARRA LATERAL (CON LOGO) ---
 with st.sidebar:
-    st.header("🔍 Filtros de Navegación")
+    # AQUI AGREGAMOS EL LOGO
+    # El sistema busca "logo.png". Si no lo encuentra, no se rompe, solo no lo muestra.
+    if os.path.exists("logo.png"):
+        st.image("logo.png", use_container_width=True)
+    else:
+        # Si subiste el archivo con otro nombre (ej: Logo.jpg), cambia el nombre aquí
+        st.warning("⚠️ Sube tu archivo 'logo.png' a GitHub")
+    
     st.divider()
+    st.header("🔍 Filtros")
     
     lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
     proceso_sel = st.selectbox("📂 1. Proceso:", lista_procesos)
