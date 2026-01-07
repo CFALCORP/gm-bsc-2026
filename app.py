@@ -29,7 +29,7 @@ def load_data():
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
-        st.error(f⚠️ Error conectando a Google Sheets: {e}")
+        st.error(f"⚠️ Error conectando a Google Sheets: {e}")
         st.stop()
 
 df_raw = load_data()
@@ -348,4 +348,5 @@ if not df_filtered.empty:
     
     fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
     
+
     st.plotly_chart(fig_bar, use_container_width=True)
