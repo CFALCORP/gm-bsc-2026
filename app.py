@@ -66,14 +66,14 @@ if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
 
-# --- 4. BARRA LATERAL (ORDEN REAJUSTADO) ---
+# --- 4. BARRA LATERAL ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     
     st.divider()
     
-    # --- 4.1 PRIMERO: FILTRO DE TIEMPO (MOVIDO AQUÍ) ---
+    # 4.1 FILTRO DE TIEMPO
     st.subheader("📅 Filtro de Tiempo")
     
     meses_disponibles = [m for m in MESES_OFICIALES if m in df.columns]
@@ -94,7 +94,7 @@ with st.sidebar:
 
     st.divider()
 
-    # --- 4.2 SEGUNDO: FILTROS GENERALES ---
+    # 4.2 FILTROS GENERALES
     st.header("🔍 Filtros Generales")
     
     lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
@@ -115,7 +115,7 @@ df_filtered = df_temp2.copy()
 if indicador_sel != "Todos":
     df_filtered = df_filtered[df_filtered['Indicador'] == indicador_sel]
 
-# --- 5. TÍTULO Y ESTADÍSTICAS GENERALES ---
+# --- 5. TÍTULO Y ESTADÍSTICAS ---
 st.title("📊 Tablero de Mando Integral 2026")
 subtitulo = indicador_sel if indicador_sel != "Todos" else (proceso_sel if proceso_sel != "Todos" else "Visión Global")
 st.markdown(f"**Vista Actual:** {subtitulo}")
@@ -151,7 +151,7 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (LETRAS GRANDES Y UNIFORMES) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (AJUSTADO) 🏆
     st.subheader("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
@@ -180,23 +180,19 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
 
-    # AJUSTES GRAFICA 1: TAMAÑO DE TEXTO UNIFICADO (14px)
+    # AJUSTES GRAFICA 1
     fig_proc.update_traces(
         texttemplate='%{text:.1f}%', 
         textposition='outside', 
-        textfont_size=14,   # Tamaño del porcentaje
+        textfont_size=14, 
         textfont_weight='bold'
     )
+    # Aquí la corrección de COLOR (quitamos 'black') y CENTRADO de título
     fig_proc.update_layout(
-        xaxis_title="", 
-        yaxis_title="", 
-        height=350, 
-        xaxis_range=[0, 135],
-        # AQUÍ IGUALAMOS EL TAMAÑO DEL EJE Y (NOMBRES)
-        yaxis=dict(
-            tickfont=dict(size=14, family="Arial", color="black"), # Tamaño del nombre del proceso
-            automargin=True
-        )
+        title_x=0.5, # Título Centrado
+        xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 135],
+        # Y-Axis sin color forzado (se adapta al tema)
+        yaxis=dict(tickfont=dict(size=14, family="Arial"), automargin=True)
     )
     col_rank1.plotly_chart(fig_proc, use_container_width=True)
 
@@ -211,7 +207,7 @@ if len(df_filtered) > 1:
         title="Ranking por Pilar Estratégico", text='Cumpl. Año',
         color_discrete_sequence=['#00C4FF']
     )
-    # AJUSTES GRAFICA 2: TAMAÑO DE TEXTO UNIFICADO (14px)
+    # AJUSTES GRAFICA 2
     fig_pil.update_traces(
         texttemplate='%{text:.1f}%', 
         textposition='outside', 
@@ -219,15 +215,9 @@ if len(df_filtered) > 1:
         textfont_weight='bold'
     )
     fig_pil.update_layout(
-        xaxis_title="", 
-        yaxis_title="", 
-        height=350, 
-        xaxis_range=[0, 135],
-        # AQUÍ IGUALAMOS EL TAMAÑO DEL EJE Y (NOMBRES)
-        yaxis=dict(
-            tickfont=dict(size=14, family="Arial", color="black"),
-            automargin=True
-        )
+        title_x=0.5, # Título Centrado
+        xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 135],
+        yaxis=dict(tickfont=dict(size=14, family="Arial"), automargin=True)
     )
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     
@@ -348,5 +338,4 @@ if not df_filtered.empty:
     
     fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
     
-
     st.plotly_chart(fig_bar, use_container_width=True)
