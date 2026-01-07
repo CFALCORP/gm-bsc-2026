@@ -111,13 +111,14 @@ df_filtered = df_temp2.copy()
 if indicador_sel != "Todos":
     df_filtered = df_filtered[df_filtered['Indicador'] == indicador_sel]
 
-# --- 5. TÍTULO Y ESTADÍSTICAS ---
+# --- 5. TÍTULO Y ESTADÍSTICAS GENERALES ---
 st.title("📊 Tablero de Mando Integral 2026")
 subtitulo = indicador_sel if indicador_sel != "Todos" else (proceso_sel if proceso_sel != "Todos" else "Visión Global")
 st.markdown(f"**Vista Actual:** {subtitulo}")
 st.divider()
 
 if len(df_filtered) > 1:
+    # 5.1 TARJETAS DE MÉTRICAS (KPIs)
     col1, col2, col3, col4 = st.columns(4)
     
     promedio_cumpl = df_filtered['Cumpl. Año'].mean()
@@ -145,8 +146,57 @@ if len(df_filtered) > 1:
     col4.metric("⚠️ Fuera de Meta", len(fuera_meta), delta_color="inverse")
     
     st.markdown("---")
-    st.info(f"🏆 **Mejor Desempeño:** {mejor_kpi} (**{val_mejor:.1f}%**)")
-    st.divider()
+    
+    # 5.2 RANKINGS TOP PROFESIONAL (NUEVO BLOQUE) 🏆
+    # Calculamos los rankings basados en el promedio de cumplimiento
+    st.subheader("🏆 Top Desempeño")
+    
+    col_rank1, col_rank2 = st.columns(2)
+    
+    # Ranking de PROCESOS (Solo si no se ha filtrado un solo proceso)
+    if proceso_sel == "Todos":
+        ranking_proceso = df_filtered.groupby('Proceso')['Cumpl. Año'].mean().sort_values(ascending=True).reset_index()
+        fig_proc = px.bar(
+            ranking_proceso, 
+            x='Cumpl. Año', 
+            y='Proceso', 
+            orientation='h',
+            title="Ranking por Proceso (Cumplimiento Promedio)",
+            text_auto='.1f',
+            color_discrete_sequence=['#00C4FF'] # Azul Neón
+        )
+        fig_proc.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
+        col_rank1.plotly_chart(fig_proc, use_container_width=True)
+    else:
+        # Si ya filtró un proceso, mostramos el TOP 5 INDICADORES de ese proceso
+        top_kpis = df_filtered.nlargest(5, 'Cumpl. Año')[['Indicador', 'Cumpl. Año']].sort_values(by='Cumpl. Año', ascending=True)
+        fig_top = px.bar(
+            top_kpis,
+            x='Cumpl. Año',
+            y='Indicador',
+            orientation='h',
+            title=f"Top 5 Indicadores - {proceso_sel}",
+            text_auto='.1f',
+            color_discrete_sequence=['#00C4FF']
+        )
+        fig_top.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
+        col_rank1.plotly_chart(fig_top, use_container_width=True)
+
+    # Ranking de PILARES (Siempre útil)
+    ranking_pilar = df_filtered.groupby('Pilar')['Cumpl. Año'].mean().sort_values(ascending=True).reset_index()
+    fig_pil = px.bar(
+        ranking_pilar, 
+        x='Cumpl. Año', 
+        y='Pilar', 
+        orientation='h',
+        title="Ranking por Pilar Estratégico",
+        text_auto='.1f',
+        color_discrete_sequence=['#00C4FF'] # Azul Neón
+    )
+    fig_pil.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
+    col_rank2.plotly_chart(fig_pil, use_container_width=True)
+    
+    st.markdown("---")
 
 # --- 6. SECCIÓN DE ALERTAS ---
 kpis_rojos = df_filtered[df_filtered['Estado Actual'].astype(str).str.contains("No", case=False)]
@@ -176,7 +226,7 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     )
     st.divider()
 
-# --- 7. GRÁFICO TENDENCIA (Para selección individual) ---
+# --- 7. GRÁFICO TENDENCIA ---
 if indicador_sel != "Todos" and len(df_filtered) == 1:
     row = df_filtered.iloc[0]
     st.subheader(f"📈 Tendencia Mensual: {row['Indicador']}")
@@ -243,8 +293,7 @@ st.dataframe(
     column_config=column_config_dinamica
 )
 
-# --- 9. GRÁFICO COMPARATIVO (AHORA SIEMPRE VISIBLE) ---
-# Hemos quitado el "if len > 1" para que salga siempre.
+# --- 9. GRÁFICO COMPARATIVO ---
 if not df_filtered.empty:
     st.subheader("📊 Comparativo: Meta vs Resultado")
     
