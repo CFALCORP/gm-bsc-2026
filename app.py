@@ -151,55 +151,45 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (LÓGICA MEJORADA + ALINEACIÓN) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (CORREGIDO Y ESTILIZADO) 🏆
     st.subheader("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     
-    # --- RANKING DE PROCESOS (Lógica: % Efectividad) ---
+    # --- RANKING DE PROCESOS (Lógica: % Efectividad Corregida) ---
     if proceso_sel == "Todos":
-        # Calculamos: (Conteo Cumple / Conteo Total) * 100
+        # FORMULA CORREGIDA: Cuenta "Cumple" pero RESTA los que dicen "No"
         ranking_proceso = df_filtered.groupby('Proceso').apply(
-            lambda x: (x['Estado Actual'].astype(str).str.contains("Cumple", case=False).sum() / len(x)) * 100
+            lambda x: (
+                (x['Estado Actual'].astype(str).str.contains("Cumple", case=False) & 
+                 ~x['Estado Actual'].astype(str).str.contains("No", case=False)).sum() 
+                / len(x)
+            ) * 100
         ).reset_index(name='Efectividad')
         
-        # Ordenamos
-        ranking_proceso = ranking_proceso.sort_values(by='Efectividad', ascending=True) # Ascendente para Plotly barh
-        
-        # Preparamos Etiquetas Numeradas
-        # Truco: Creamos la lista al revés para que el #1 quede arriba visualmente
-        ranking_proceso['Ranking'] = range(len(ranking_proceso), 0, -1) 
+        ranking_proceso = ranking_proceso.sort_values(by='Efectividad', ascending=True)
+        ranking_proceso['Ranking'] = range(len(ranking_proceso), 0, -1)
         ranking_proceso['Etiqueta'] = ranking_proceso['Ranking'].astype(str) + ". " + ranking_proceso['Proceso']
         
         fig_proc = px.bar(
             ranking_proceso, 
             x='Efectividad', 
-            y='Proceso', # Usamos Proceso como eje base, pero ocultaremos el texto
+            y='Proceso', 
             orientation='h',
             title="Ranking por Proceso (% Efectividad)",
             text='Efectividad',
             color_discrete_sequence=['#00C4FF']
         )
         
-        # TRUCO DE ALINEACIÓN IZQUIERDA:
-        # 1. Ocultamos el Eje Y estándar (que alinea a la derecha).
-        # 2. Agregamos Anotaciones manuales en el margen izquierdo.
         fig_proc.update_yaxes(visible=False, showticklabels=False)
-        
         for i, row in ranking_proceso.iterrows():
             fig_proc.add_annotation(
-                x=0, y=i, # Posición (0 en X es el inicio de la barra)
-                text=row['Etiqueta'],
-                xanchor='left', # Anclamos el texto a la IZQUIERDA
-                xref='paper',   # Usamos coordenadas relativas al "papel" (0 es el borde izq)
-                xshift=-200,    # Movemos hacia la izquierda (Margen)
-                showarrow=False,
-                align='left',
+                x=0, y=i, text=row['Etiqueta'], xanchor='left', xref='paper', xshift=-200, showarrow=False, align='left',
                 font=dict(size=14, color="black" if st.get_option("theme.base") == "light" else "white")
             )
 
     else:
-        # Top 5 Indicadores (Mantenemos cumplimiento individual)
+        # Top 5 Indicadores
         top_kpis = df_filtered.nlargest(5, 'Cumpl. Año').sort_values(by='Cumpl. Año', ascending=True)
         top_kpis['Ranking'] = range(len(top_kpis), 0, -1)
         top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:25] + "..."
@@ -216,19 +206,24 @@ if len(df_filtered) > 1:
                 font=dict(size=14)
             )
 
-    # AJUSTES VISUALES UNIFICADOS
-    fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=15, textfont_weight='bold')
+    # AJUSTES VISUALES FINOS (Texto pequeño, Barras delgadas)
+    fig_proc.update_traces(
+        texttemplate='%{text:.1f}%', 
+        textposition='outside', 
+        textfont_size=13, # 1px más pequeño
+        textfont_weight='bold'
+    )
     fig_proc.update_layout(
-        title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'), # Título Grande y Centrado
-        margin=dict(l=210, r=50, t=50, b=50), # Margen Izquierdo GRANDE para el texto
-        xaxis_title="", yaxis_title="", height=350, 
-        xaxis_range=[0, 130]
+        title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
+        margin=dict(l=210, r=60, t=50, b=50), # Margen derecho aumentado (60)
+        xaxis_title="", yaxis_title="", 
+        height=350, 
+        xaxis_range=[0, 140], # Rango aumentado para que quepa el texto
+        bargap=0.4 # Barras más delgadas (espacio entre ellas más grande)
     )
     col_rank1.plotly_chart(fig_proc, use_container_width=True)
 
-    # --- RANKING DE PILARES (Manteniendo Promedio o cambiando a Efectividad? User solo pidió Proceso) ---
-    # Nota: Si quisieras cambiar Pilares a Efectividad, copia la lógica de arriba.
-    # Por ahora mantengo promedio como estaba, pero con el diseño nuevo.
+    # --- RANKING DE PILARES ---
     ranking_pilar = df_filtered.groupby('Pilar')['Cumpl. Año'].mean().reset_index()
     ranking_pilar = ranking_pilar.sort_values(by='Cumpl. Año', ascending=True)
     ranking_pilar['Ranking'] = range(len(ranking_pilar), 0, -1)
@@ -240,7 +235,6 @@ if len(df_filtered) > 1:
         color_discrete_sequence=['#00C4FF']
     )
     
-    # APLICAMOS EL MISMO TRUCO DE ALINEACIÓN A PILARES
     fig_pil.update_yaxes(visible=False, showticklabels=False)
     for i, row in ranking_pilar.reset_index(drop=True).iterrows():
         fig_pil.add_annotation(
@@ -248,12 +242,14 @@ if len(df_filtered) > 1:
             font=dict(size=14)
         )
 
-    fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=15, textfont_weight='bold')
+    fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
     fig_pil.update_layout(
         title=dict(text="Ranking por Pilar Estratégico", font=dict(size=22), x=0.5, xanchor='center'),
-        margin=dict(l=210, r=50, t=50, b=50), # Margen consistente
-        xaxis_title="", yaxis_title="", height=350, 
-        xaxis_range=[0, 130]
+        margin=dict(l=210, r=60, t=50, b=50),
+        xaxis_title="", yaxis_title="", 
+        height=350, 
+        xaxis_range=[0, 140],
+        bargap=0.4 # Barras más delgadas
     )
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     
