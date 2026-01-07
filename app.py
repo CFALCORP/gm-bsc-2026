@@ -29,7 +29,7 @@ def load_data():
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
-        st.error(f"⚠️ Error conectando a Google Sheets: {e}")
+        st.error(f⚠️ Error conectando a Google Sheets: {e}")
         st.stop()
 
 df_raw = load_data()
@@ -66,26 +66,14 @@ if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
 
-# --- 4. BARRA LATERAL ---
+# --- 4. BARRA LATERAL (ORDEN REAJUSTADO) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     
     st.divider()
-    st.header("🔍 Filtros Generales")
     
-    lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
-    proceso_sel = st.selectbox("📂 1. Proceso:", lista_procesos)
-    df_temp1 = df[df['Proceso'] == proceso_sel] if proceso_sel != "Todos" else df
-
-    lista_pilares = ["Todos"] + sorted(list(df_temp1['Pilar'].unique()))
-    pilar_sel = st.selectbox("🏛️ 2. Pilar:", lista_pilares)
-    df_temp2 = df_temp1[df_temp1['Pilar'] == pilar_sel] if pilar_sel != "Todos" else df_temp1
-
-    lista_indicadores = ["Todos"] + sorted(list(df_temp2['Indicador'].unique()))
-    indicador_sel = st.selectbox("🎯 3. Indicador:", lista_indicadores)
-    
-    st.divider()
+    # --- 4.1 PRIMERO: FILTRO DE TIEMPO (MOVIDO AQUÍ) ---
     st.subheader("📅 Filtro de Tiempo")
     
     meses_disponibles = [m for m in MESES_OFICIALES if m in df.columns]
@@ -104,6 +92,22 @@ with st.sidebar:
         meses_seleccionados = sorted(meses_seleccionados, key=lambda x: MESES_OFICIALES.index(x))
         mostrar_meses_tabla = True
 
+    st.divider()
+
+    # --- 4.2 SEGUNDO: FILTROS GENERALES ---
+    st.header("🔍 Filtros Generales")
+    
+    lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
+    proceso_sel = st.selectbox("📂 1. Proceso:", lista_procesos)
+    df_temp1 = df[df['Proceso'] == proceso_sel] if proceso_sel != "Todos" else df
+
+    lista_pilares = ["Todos"] + sorted(list(df_temp1['Pilar'].unique()))
+    pilar_sel = st.selectbox("🏛️ 2. Pilar:", lista_pilares)
+    df_temp2 = df_temp1[df_temp1['Pilar'] == pilar_sel] if pilar_sel != "Todos" else df_temp1
+
+    lista_indicadores = ["Todos"] + sorted(list(df_temp2['Indicador'].unique()))
+    indicador_sel = st.selectbox("🎯 3. Indicador:", lista_indicadores)
+    
     st.caption("🟢 Conectado a Google Sheets")
 
 # Aplicar filtros
@@ -118,7 +122,7 @@ st.markdown(f"**Vista Actual:** {subtitulo}")
 st.divider()
 
 if len(df_filtered) > 1:
-    # 5.1 TARJETAS DE MÉTRICAS (KPIs)
+    # 5.1 TARJETAS DE MÉTRICAS
     col1, col2, col3, col4 = st.columns(4)
     
     promedio_cumpl = df_filtered['Cumpl. Año'].mean()
@@ -147,19 +151,16 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (LETRAS GRANDES Y UNIFORMES) 🏆
     st.subheader("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     
-    # --- RANKING DE PROCESOS (O INDICADORES) ---
+    # --- RANKING DE PROCESOS ---
     if proceso_sel == "Todos":
-        # 1. Calculamos promedios y ordenamos DESCENDENTE para saber quién es el #1
         ranking_proceso = df_filtered.groupby('Proceso')['Cumpl. Año'].mean().sort_values(ascending=False).reset_index()
-        # 2. Creamos la etiqueta con el número "1. Nombre"
         ranking_proceso['Ranking'] = ranking_proceso.index + 1
         ranking_proceso['Etiqueta'] = ranking_proceso['Ranking'].astype(str) + ". " + ranking_proceso['Proceso']
-        # 3. Volvemos a ordenar ASCENDENTE para que Plotly dibuje el #1 arriba
         ranking_proceso = ranking_proceso.sort_values(ascending=True, by='Cumpl. Año')
         
         fig_proc = px.bar(
@@ -168,10 +169,9 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
     else:
-        # TOP 5 INDICADORES (Misma lógica)
         top_kpis = df_filtered.nlargest(5, 'Cumpl. Año').sort_values(by='Cumpl. Año', ascending=False).reset_index(drop=True)
         top_kpis['Ranking'] = top_kpis.index + 1
-        top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:20] + "..." # Cortamos nombre largo
+        top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:20] + "..."
         top_kpis = top_kpis.sort_values(by='Cumpl. Año', ascending=True)
         
         fig_proc = px.bar(
@@ -180,9 +180,24 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
 
-    # AJUSTES VISUALES GRAFICA 1 (Texto afuera y grande)
-    fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=14, textfont_weight='bold')
-    fig_proc.update_layout(xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 130]) # Rango extendido para que quepa el texto
+    # AJUSTES GRAFICA 1: TAMAÑO DE TEXTO UNIFICADO (14px)
+    fig_proc.update_traces(
+        texttemplate='%{text:.1f}%', 
+        textposition='outside', 
+        textfont_size=14,   # Tamaño del porcentaje
+        textfont_weight='bold'
+    )
+    fig_proc.update_layout(
+        xaxis_title="", 
+        yaxis_title="", 
+        height=350, 
+        xaxis_range=[0, 135],
+        # AQUÍ IGUALAMOS EL TAMAÑO DEL EJE Y (NOMBRES)
+        yaxis=dict(
+            tickfont=dict(size=14, family="Arial", color="black"), # Tamaño del nombre del proceso
+            automargin=True
+        )
+    )
     col_rank1.plotly_chart(fig_proc, use_container_width=True)
 
     # --- RANKING DE PILARES ---
@@ -196,9 +211,24 @@ if len(df_filtered) > 1:
         title="Ranking por Pilar Estratégico", text='Cumpl. Año',
         color_discrete_sequence=['#00C4FF']
     )
-    # AJUSTES VISUALES GRAFICA 2
-    fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=14, textfont_weight='bold')
-    fig_pil.update_layout(xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 130])
+    # AJUSTES GRAFICA 2: TAMAÑO DE TEXTO UNIFICADO (14px)
+    fig_pil.update_traces(
+        texttemplate='%{text:.1f}%', 
+        textposition='outside', 
+        textfont_size=14, 
+        textfont_weight='bold'
+    )
+    fig_pil.update_layout(
+        xaxis_title="", 
+        yaxis_title="", 
+        height=350, 
+        xaxis_range=[0, 135],
+        # AQUÍ IGUALAMOS EL TAMAÑO DEL EJE Y (NOMBRES)
+        yaxis=dict(
+            tickfont=dict(size=14, family="Arial", color="black"),
+            automargin=True
+        )
+    )
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     
     st.markdown("---")
