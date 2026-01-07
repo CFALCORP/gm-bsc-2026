@@ -147,53 +147,58 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (NUEVO BLOQUE) 🏆
-    # Calculamos los rankings basados en el promedio de cumplimiento
+    # 5.2 RANKINGS TOP PROFESIONAL 🏆
     st.subheader("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     
-    # Ranking de PROCESOS (Solo si no se ha filtrado un solo proceso)
+    # --- RANKING DE PROCESOS (O INDICADORES) ---
     if proceso_sel == "Todos":
-        ranking_proceso = df_filtered.groupby('Proceso')['Cumpl. Año'].mean().sort_values(ascending=True).reset_index()
+        # 1. Calculamos promedios y ordenamos DESCENDENTE para saber quién es el #1
+        ranking_proceso = df_filtered.groupby('Proceso')['Cumpl. Año'].mean().sort_values(ascending=False).reset_index()
+        # 2. Creamos la etiqueta con el número "1. Nombre"
+        ranking_proceso['Ranking'] = ranking_proceso.index + 1
+        ranking_proceso['Etiqueta'] = ranking_proceso['Ranking'].astype(str) + ". " + ranking_proceso['Proceso']
+        # 3. Volvemos a ordenar ASCENDENTE para que Plotly dibuje el #1 arriba
+        ranking_proceso = ranking_proceso.sort_values(ascending=True, by='Cumpl. Año')
+        
         fig_proc = px.bar(
-            ranking_proceso, 
-            x='Cumpl. Año', 
-            y='Proceso', 
-            orientation='h',
-            title="Ranking por Proceso (Cumplimiento Promedio)",
-            text_auto='.1f',
-            color_discrete_sequence=['#00C4FF'] # Azul Neón
-        )
-        fig_proc.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
-        col_rank1.plotly_chart(fig_proc, use_container_width=True)
-    else:
-        # Si ya filtró un proceso, mostramos el TOP 5 INDICADORES de ese proceso
-        top_kpis = df_filtered.nlargest(5, 'Cumpl. Año')[['Indicador', 'Cumpl. Año']].sort_values(by='Cumpl. Año', ascending=True)
-        fig_top = px.bar(
-            top_kpis,
-            x='Cumpl. Año',
-            y='Indicador',
-            orientation='h',
-            title=f"Top 5 Indicadores - {proceso_sel}",
-            text_auto='.1f',
+            ranking_proceso, x='Cumpl. Año', y='Etiqueta', orientation='h',
+            title="Ranking por Proceso", text='Cumpl. Año',
             color_discrete_sequence=['#00C4FF']
         )
-        fig_top.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
-        col_rank1.plotly_chart(fig_top, use_container_width=True)
+    else:
+        # TOP 5 INDICADORES (Misma lógica)
+        top_kpis = df_filtered.nlargest(5, 'Cumpl. Año').sort_values(by='Cumpl. Año', ascending=False).reset_index(drop=True)
+        top_kpis['Ranking'] = top_kpis.index + 1
+        top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:20] + "..." # Cortamos nombre largo
+        top_kpis = top_kpis.sort_values(by='Cumpl. Año', ascending=True)
+        
+        fig_proc = px.bar(
+            top_kpis, x='Cumpl. Año', y='Etiqueta', orientation='h',
+            title=f"Top 5 Indicadores - {proceso_sel}", text='Cumpl. Año',
+            color_discrete_sequence=['#00C4FF']
+        )
 
-    # Ranking de PILARES (Siempre útil)
-    ranking_pilar = df_filtered.groupby('Pilar')['Cumpl. Año'].mean().sort_values(ascending=True).reset_index()
+    # AJUSTES VISUALES GRAFICA 1 (Texto afuera y grande)
+    fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=14, textfont_weight='bold')
+    fig_proc.update_layout(xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 130]) # Rango extendido para que quepa el texto
+    col_rank1.plotly_chart(fig_proc, use_container_width=True)
+
+    # --- RANKING DE PILARES ---
+    ranking_pilar = df_filtered.groupby('Pilar')['Cumpl. Año'].mean().sort_values(ascending=False).reset_index()
+    ranking_pilar['Ranking'] = ranking_pilar.index + 1
+    ranking_pilar['Etiqueta'] = ranking_pilar['Ranking'].astype(str) + ". " + ranking_pilar['Pilar']
+    ranking_pilar = ranking_pilar.sort_values(ascending=True, by='Cumpl. Año')
+
     fig_pil = px.bar(
-        ranking_pilar, 
-        x='Cumpl. Año', 
-        y='Pilar', 
-        orientation='h',
-        title="Ranking por Pilar Estratégico",
-        text_auto='.1f',
-        color_discrete_sequence=['#00C4FF'] # Azul Neón
+        ranking_pilar, x='Cumpl. Año', y='Etiqueta', orientation='h',
+        title="Ranking por Pilar Estratégico", text='Cumpl. Año',
+        color_discrete_sequence=['#00C4FF']
     )
-    fig_pil.update_layout(xaxis_title="Cumplimiento %", yaxis_title="", height=300)
+    # AJUSTES VISUALES GRAFICA 2
+    fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=14, textfont_weight='bold')
+    fig_pil.update_layout(xaxis_title="", yaxis_title="", height=350, xaxis_range=[0, 130])
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     
     st.markdown("---")
