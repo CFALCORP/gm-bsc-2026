@@ -90,23 +90,19 @@ with st.sidebar:
     
     meses_disponibles = [m for m in MESES_OFICIALES if m in df.columns]
     
-    # Checkbox inteligente
     ver_todos = st.checkbox("Ver todo el año (Resumen)", value=True)
     
     if ver_todos:
-        # Si ve todo el año, seleccionamos todos para las gráficas...
         meses_seleccionados = meses_disponibles
-        # ...PERO OCULTAMOS las columnas en la tabla para que no se vea desordenado
         mostrar_meses_tabla = False
     else:
-        # Si selecciona manual, mostramos lo que seleccione
         meses_seleccionados = st.multiselect(
-            "Selecciona los meses a detallar:", 
+            "Selecciona los meses:", 
             meses_disponibles,
             default=meses_disponibles[:1]
         )
         meses_seleccionados = sorted(meses_seleccionados, key=lambda x: MESES_OFICIALES.index(x))
-        mostrar_meses_tabla = True # Aquí sí mostramos las columnas
+        mostrar_meses_tabla = True
 
     st.caption("🟢 Conectado a Google Sheets")
 
@@ -162,13 +158,11 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     cols_alerta_base = ['Indicador', 'Proceso', 'Meta']
     cols_alerta_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
     
-    # Lógica de Limpieza: Solo agregamos meses si el usuario los pidió explícitamente
     if mostrar_meses_tabla:
         cols_alerta_mostrar = cols_alerta_base + meses_seleccionados + cols_alerta_final
     else:
         cols_alerta_mostrar = cols_alerta_base + cols_alerta_final
     
-    # Formatos
     format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
     format_dict_meta = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
     format_total = {**format_dict_meta, **format_dict_meses}
@@ -182,15 +176,13 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     )
     st.divider()
 
-# --- 7. GRÁFICO TENDENCIA (Siempre útil) ---
+# --- 7. GRÁFICO TENDENCIA (Para selección individual) ---
 if indicador_sel != "Todos" and len(df_filtered) == 1:
     row = df_filtered.iloc[0]
     st.subheader(f"📈 Tendencia Mensual: {row['Indicador']}")
     
     vals = []
     meses_grafica = []
-    
-    # En la gráfica SIEMPRE mostramos la selección (si es "Todos", muestra los 12 meses)
     for m in meses_seleccionados:
         if m in row:
             vals.append(row[m])
@@ -215,7 +207,6 @@ st.subheader("📋 Detalle de Indicadores")
 cols_base = ['Indicador', 'Meta']
 cols_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
 
-# Lógica de Limpieza aquí también
 if mostrar_meses_tabla:
     cols_mostrar = cols_base + meses_seleccionados + cols_final
 else:
@@ -229,7 +220,6 @@ format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
 format_dict_gral = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
 todos_los_formatos = {**format_dict_gral, **format_dict_meses}
 
-# Configuración de columnas
 column_config_dinamica = {
     "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
     "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
@@ -239,7 +229,6 @@ column_config_dinamica = {
     ),
 }
 
-# Solo configuramos columnas de meses si se van a mostrar
 if mostrar_meses_tabla:
     for m in meses_seleccionados:
         column_config_dinamica[m] = st.column_config.NumberColumn(m, format="%.2f%%")
@@ -254,6 +243,25 @@ st.dataframe(
     column_config=column_config_dinamica
 )
 
-# --- 9. GRÁFICO COMPARATIVO ---
-if len(df_filtered) > 1:
+# --- 9. GRÁFICO COMPARATIVO (AHORA SIEMPRE VISIBLE) ---
+# Hemos quitado el "if len > 1" para que salga siempre.
+if not df_filtered.empty:
     st.subheader("📊 Comparativo: Meta vs Resultado")
+    
+    fig_bar = go.Figure()
+    
+    fig_bar.add_trace(go.Bar(
+        x=df_filtered['Indicador'], y=df_filtered['Meta'], 
+        name='Meta', marker_color='lightgray', 
+        text=df_filtered['Meta'], texttemplate='%{text:.2f}%'
+    ))
+    
+    fig_bar.add_trace(go.Bar(
+        x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], 
+        name='Resultado Real', marker_color='#00C4FF', 
+        text=df_filtered['Prom. Año'], texttemplate='%{text:.2f}%'
+    ))
+    
+    fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
+    
+    st.plotly_chart(fig_bar, use_container_width=True)
