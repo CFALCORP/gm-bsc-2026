@@ -38,7 +38,6 @@ df_raw = load_data()
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
-    """Convierte texto o números a float limpio"""
     if pd.isna(x): return 0.0
     
     tiene_simbolo = False
@@ -52,13 +51,13 @@ def normalizar_porcentaje(x):
     else:
         val = float(x)
     
-    # Lógica inteligente de escala
     if tiene_simbolo: return val
     if abs(val) <= 1.5 and val != 0: return val * 100
     return val
 
-meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-cols_a_limpiar = ['Meta', 'Prom. Año', 'Cumpl. Año'] + meses
+# Lista oficial de meses ordenada
+MESES_OFICIALES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+cols_a_limpiar = ['Meta', 'Prom. Año', 'Cumpl. Año'] + MESES_OFICIALES
 
 for col in cols_a_limpiar:
     if col in df.columns:
@@ -68,14 +67,15 @@ if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
 
-# --- 4. BARRA LATERAL (CON LOGO) ---
+# --- 4. BARRA LATERAL (CON NUEVO FILTRO DE MESES) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
     
     st.divider()
-    st.header("🔍 Filtros")
+    st.header("🔍 Filtros Generales")
     
+    # Filtros Jerárquicos
     lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
     proceso_sel = st.selectbox("📂 1. Proceso:", lista_procesos)
     df_temp1 = df[df['Proceso'] == proceso_sel] if proceso_sel != "Todos" else df
@@ -87,9 +87,30 @@ with st.sidebar:
     lista_indicadores = ["Todos"] + sorted(list(df_temp2['Indicador'].unique()))
     indicador_sel = st.selectbox("🎯 3. Indicador:", lista_indicadores)
     
+    st.divider()
+    st.subheader("📅 Filtro de Tiempo")
+    
+    # NUEVO FILTRO DE MESES (MULTISELECCIÓN)
+    # Verificar qué meses existen realmente en el Excel
+    meses_disponibles = [m for m in MESES_OFICIALES if m in df.columns]
+    
+    # Checkbox para seleccionar todos rápido
+    ver_todos = st.checkbox("Ver todo el año", value=True)
+    
+    if ver_todos:
+        meses_seleccionados = meses_disponibles
+    else:
+        meses_seleccionados = st.multiselect(
+            "Selecciona los meses:", 
+            meses_disponibles,
+            default=meses_disponibles[:1] # Por defecto muestra el primero si quitan el check
+        )
+        # Ordenamos la selección para que no salga desordenada (Ene, Feb, Mar...)
+        meses_seleccionados = sorted(meses_seleccionados, key=lambda x: MESES_OFICIALES.index(x))
+
     st.caption("🟢 Conectado a Google Sheets")
 
-# Aplicar filtros
+# Aplicar filtros de filas
 df_filtered = df_temp2.copy()
 if indicador_sel != "Todos":
     df_filtered = df_filtered[df_filtered['Indicador'] == indicador_sel]
@@ -138,67 +159,92 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     st.subheader("🔥 Alertas Prioritarias (Fuera de Meta)")
     st.warning(f"Se requieren acciones correctivas en {len(kpis_rojos)} indicadores.")
     
-    cols_alerta = ['Indicador', 'Proceso', 'Meta', 'Prom. Año', 'Cumpl. Año', 'Estado Actual']
+    # Columnas dinámicas en alertas también
+    cols_alerta_base = ['Indicador', 'Proceso', 'Meta']
+    cols_alerta_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
+    # Insertamos los meses seleccionados en el medio
+    cols_alerta_mostrar = cols_alerta_base + meses_seleccionados + cols_alerta_final
     
+    # Configuración de formato para los meses dinámicos
+    format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
+    format_dict_meta = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
+    format_total = {**format_dict_meta, **format_dict_meses} # Unimos los formatos
+
     st.dataframe(
-        kpis_rojos[cols_alerta],
+        kpis_rojos[cols_alerta_mostrar].style
+        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120)
+        .format(format_total),
         use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
-            "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
-            "Cumpl. Año": st.column_config.ProgressColumn(
-                "Cumplimiento", format="%.0f%%", min_value=0, max_value=120
-            )
-        }
+        hide_index=True
     )
     st.divider()
 
-# --- 7. GRÁFICO TENDENCIA (INDIVIDUAL) ---
+# --- 7. GRÁFICO TENDENCIA (DINÁMICO SEGÚN MESES) ---
 if indicador_sel != "Todos" and len(df_filtered) == 1:
     row = df_filtered.iloc[0]
     st.subheader(f"📈 Tendencia Mensual: {row['Indicador']}")
     
+    # Solo graficamos los meses seleccionados
     vals = []
-    for m in meses:
+    meses_grafica = []
+    
+    for m in meses_seleccionados: # Usamos la selección del filtro
         if m in row:
             vals.append(row[m])
+            meses_grafica.append(m)
         else:
             vals.append(0)
+            meses_grafica.append(m)
             
     fig_ind = go.Figure()
     fig_ind.add_trace(go.Scatter(
-        x=meses, y=vals, mode='lines+markers+text',
-        name='Real', line=dict(color='#00C4FF', width=3), # Azul aquí sí se puede forzar
+        x=meses_grafica, y=vals, mode='lines+markers+text',
+        name='Real', line=dict(color='#00C4FF', width=3),
         text=[f"{v:.2f}%" for v in vals], textposition="top center"
     ))
     fig_ind.add_hline(y=row['Meta'], line_dash="dash", line_color="red", annotation_text=f"Meta: {row['Meta']}%")
     fig_ind.update_layout(height=350, margin=dict(t=10, b=10))
     st.plotly_chart(fig_ind, use_container_width=True)
 
-# --- 8. TABLA DE DETALLE ---
+# --- 8. TABLA DE DETALLE (CON COLUMNAS DINÁMICAS) ---
 st.subheader("📋 Detalle de Indicadores")
-cols_mostrar = ['Indicador', 'Meta', 'Prom. Año', 'Cumpl. Año', 'Estado Actual']
-if indicador_sel != "Todos": cols_mostrar += meses
+
+# Definición Dinámica de Columnas
+cols_base = ['Indicador', 'Meta']
+cols_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
+cols_mostrar = cols_base + meses_seleccionados + cols_final # <--- Aquí ocurre la magia
 
 def colorear_estado(val):
     color = '#d32f2f' if 'No' in str(val) else '#2e7d32' 
     return f'color: {color}; font-weight: bold'
 
-# Volvemos a la configuración robusta de ProgressColumn (La barra reaparecerá aquí)
+# Formatos dinámicos
+format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
+format_dict_gral = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
+todos_los_formatos = {**format_dict_gral, **format_dict_meses}
+
+# Configuración de columnas (para que se vean bonitas)
+column_config_dinamica = {
+    "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
+    "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
+    "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
+    "Cumpl. Año": st.column_config.ProgressColumn(
+        "Cumplimiento", format="%.0f%%", min_value=0, max_value=120
+    ),
+}
+
+# Agregamos config para cada mes seleccionado (para que tenga título corto y formato)
+for m in meses_seleccionados:
+    column_config_dinamica[m] = st.column_config.NumberColumn(m, format="%.2f%%")
+
 st.dataframe(
-    df_filtered[cols_mostrar].style.applymap(colorear_estado, subset=['Estado Actual'])
-    .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%"}), 
+    df_filtered[cols_mostrar].style
+    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120)
+    .applymap(colorear_estado, subset=['Estado Actual'])
+    .format(todos_los_formatos), 
     use_container_width=True,
     hide_index=True,
-    column_config={
-        "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
-        "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
-        "Cumpl. Año": st.column_config.ProgressColumn(
-            "Cumplimiento", format="%.0f%%", min_value=0, max_value=120
-        ),
-        "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
-    }
+    column_config=column_config_dinamica
 )
 
 # --- 9. GRÁFICO COMPARATIVO ---
@@ -215,7 +261,7 @@ if len(df_filtered) > 1:
     
     fig_bar.add_trace(go.Bar(
         x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], 
-        name='Resultado Real', marker_color='#00C4FF', # Azul Neón
+        name='Resultado Real', marker_color='#00C4FF', 
         text=df_filtered['Prom. Año'], texttemplate='%{text:.2f}%'
     ))
     
