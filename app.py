@@ -38,7 +38,9 @@ df_raw = load_data()
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
+    """Convierte texto o números a float limpio"""
     if pd.isna(x): return 0.0
+    
     tiene_simbolo = False
     if isinstance(x, str):
         if '%' in x: tiene_simbolo = True
@@ -50,6 +52,7 @@ def normalizar_porcentaje(x):
     else:
         val = float(x)
     
+    # Lógica inteligente de escala
     if tiene_simbolo: return val
     if abs(val) <= 1.5 and val != 0: return val * 100
     return val
@@ -137,13 +140,17 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     
     cols_alerta = ['Indicador', 'Proceso', 'Meta', 'Prom. Año', 'Cumpl. Año', 'Estado Actual']
     
-    # AQUI ESTA LA MAGIA DEL COLOR AZUL (Style Bar)
     st.dataframe(
-        kpis_rojos[cols_alerta].style
-        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120) # Azul Neón
-        .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}),
+        kpis_rojos[cols_alerta],
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        column_config={
+            "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
+            "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
+            "Cumpl. Año": st.column_config.ProgressColumn(
+                "Cumplimiento", format="%.0f%%", min_value=0, max_value=120
+            )
+        }
     )
     st.divider()
 
@@ -162,7 +169,7 @@ if indicador_sel != "Todos" and len(df_filtered) == 1:
     fig_ind = go.Figure()
     fig_ind.add_trace(go.Scatter(
         x=meses, y=vals, mode='lines+markers+text',
-        name='Real', line=dict(color='#00C4FF', width=3), # Azul Neón también aquí
+        name='Real', line=dict(color='#00C4FF', width=3), # Azul aquí sí se puede forzar
         text=[f"{v:.2f}%" for v in vals], textposition="top center"
     ))
     fig_ind.add_hline(y=row['Meta'], line_dash="dash", line_color="red", annotation_text=f"Meta: {row['Meta']}%")
@@ -178,19 +185,19 @@ def colorear_estado(val):
     color = '#d32f2f' if 'No' in str(val) else '#2e7d32' 
     return f'color: {color}; font-weight: bold'
 
-# APLICAMOS BARRA AZUL NEÓN TAMBIÉN AQUÍ
+# Volvemos a la configuración robusta de ProgressColumn (La barra reaparecerá aquí)
 st.dataframe(
-    df_filtered[cols_mostrar].style
-    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120) # Azul Neón
-    .applymap(colorear_estado, subset=['Estado Actual'])
-    .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}), 
+    df_filtered[cols_mostrar].style.applymap(colorear_estado, subset=['Estado Actual'])
+    .format({'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%"}), 
     use_container_width=True,
     hide_index=True,
     column_config={
-        # Quitamos Cumpl. Año de aquí para que no choque con el style.bar
-        "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
         "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
         "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
+        "Cumpl. Año": st.column_config.ProgressColumn(
+            "Cumplimiento", format="%.0f%%", min_value=0, max_value=120
+        ),
+        "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
     }
 )
 
