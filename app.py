@@ -27,7 +27,7 @@ def load_data():
         except:
             df = pd.read_csv(url, sep=';')
         
-        # LIMPIEZA PROFUNDA DE TEXTOS (Espacios invisibles)
+        # LIMPIEZA PROFUNDA DE TEXTOS
         df.columns = df.columns.str.strip()
         for col in ['Proceso', 'Pilar', 'Indicador', 'Estado Actual']:
             if col in df.columns:
@@ -141,11 +141,15 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (DISEÑO AMPLIADO) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (ESPACIO AMPLIADO) 🏆
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     text_color = "black" if st.get_option("theme.base") == "light" else "white"
+    
+    # Variables de ajuste estético
+    margen_izq_negativo = -100  # <--- MÁS ESPACIO PARA TEXTO (Antes -65)
+    rango_eje_x = [margen_izq_negativo, 160] # <--- MÁS RANGO A LA DERECHA PARA ACORTAR BARRAS
     
     # --- RANKING DE PROCESOS ---
     if proceso_sel == "Todos":
@@ -163,15 +167,14 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
         
-        # Ocultamos eje Y y ponemos etiquetas en el área negativa
         fig_proc.update_yaxes(visible=False, showticklabels=False, categoryorder='total ascending')
         
         for i, row in ranking_proceso.iterrows():
             fig_proc.add_annotation(
                 y=row['Proceso'], 
-                x=-65, # Posición fija a la izquierda extrema
+                x=margen_izq_negativo, # Usamos la nueva variable
                 text=row['Etiqueta'], 
-                xanchor='left', # Alineado a la izquierda
+                xanchor='left', 
                 showarrow=False, align='left',
                 font=dict(size=14, color=text_color)
             )
@@ -189,23 +192,17 @@ if len(df_filtered) > 1:
         fig_proc.update_yaxes(visible=False, categoryorder='total ascending')
         for i, row in top_kpis.iterrows():
             fig_proc.add_annotation(
-                y=row['Indicador'], x=-65, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
+                y=row['Indicador'], x=margen_izq_negativo, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
                 font=dict(size=14, color=text_color)
             )
 
-    # AJUSTES VISUALES: Rango extendido y Barras más finas
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
     
-    max_val = 135
-    if proceso_sel == "Todos" and not ranking_proceso.empty:
-         max_val = 145 # Un poco más de espacio
-
     fig_proc.update_layout(
         title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
         margin=dict(l=0, r=50, t=50, b=20),
-        xaxis_title="", yaxis_title="", 
-        height=400, 
-        xaxis_range=[-65, 150], # Rango negativo amplio para texto, positivo para acortar barra
+        xaxis_title="", yaxis_title="", height=400, 
+        xaxis_range=rango_eje_x, # Aplicamos el rango nuevo
         bargap=0.4,
         showlegend=False
     )
@@ -227,7 +224,7 @@ if len(df_filtered) > 1:
     for i, row in ranking_pilar.iterrows():
         fig_pil.add_annotation(
             y=row['Pilar'], 
-            x=-65, # Mismo margen amplio para Pilar
+            x=margen_izq_negativo, # Mismo margen amplio para Pilar
             text=row['Etiqueta'], 
             xanchor='left', 
             showarrow=False, align='left',
@@ -239,7 +236,7 @@ if len(df_filtered) > 1:
         title=dict(text="Ranking por Pilar Estratégico", font=dict(size=22), x=0.5, xanchor='center'),
         margin=dict(l=0, r=50, t=50, b=20),
         xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=[-65, 150], # Rango consistente
+        xaxis_range=rango_eje_x, # Aplicamos el rango nuevo
         bargap=0.4,
         showlegend=False
     )
