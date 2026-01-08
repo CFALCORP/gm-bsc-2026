@@ -65,6 +65,11 @@ for col in cols_a_limpiar:
 if 'Cumpl. Año' in df.columns:
     df['Cumpl. Año'] = df['Cumpl. Año'].apply(lambda x: x*100 if x <= 2.0 and x != 0 else x)
 
+# --- NUEVA LIMPIEZA DE ESTADO ACTUAL (CRÍTICO) ---
+# Aseguramos que la columna sea texto limpio para evitar errores de cálculo
+if 'Estado Actual' in df.columns:
+    df['Estado Actual'] = df['Estado Actual'].astype(str).str.strip()
+
 
 # --- 4. BARRA LATERAL ---
 with st.sidebar:
@@ -151,18 +156,18 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (CORREGIDO Y ESTILIZADO) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (LÓGICA BLINDADA) 🏆
     st.subheader("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     
-    # --- RANKING DE PROCESOS (Lógica: % Efectividad Corregida) ---
+    # --- RANKING DE PROCESOS (Lógica: Coincidencia Exacta) ---
     if proceso_sel == "Todos":
-        # FORMULA CORREGIDA: Cuenta "Cumple" pero RESTA los que dicen "No"
+        # FORMULA ESTRICTA: Solo cuenta si la palabra es EXACTAMENTE "cumple" (ignorando mayúsculas)
+        # Esto evita que "Incumple" o "No Cumple" se cuenten como positivos.
         ranking_proceso = df_filtered.groupby('Proceso').apply(
             lambda x: (
-                (x['Estado Actual'].astype(str).str.contains("Cumple", case=False) & 
-                 ~x['Estado Actual'].astype(str).str.contains("No", case=False)).sum() 
+                (x['Estado Actual'].str.lower() == 'cumple').sum() 
                 / len(x)
             ) * 100
         ).reset_index(name='Efectividad')
@@ -182,10 +187,13 @@ if len(df_filtered) > 1:
         )
         
         fig_proc.update_yaxes(visible=False, showticklabels=False)
+        # Color inteligente del texto (negro en light, blanco en dark)
+        text_color = "black" if st.get_option("theme.base") == "light" else "white"
+        
         for i, row in ranking_proceso.iterrows():
             fig_proc.add_annotation(
                 x=0, y=i, text=row['Etiqueta'], xanchor='left', xref='paper', xshift=-200, showarrow=False, align='left',
-                font=dict(size=14, color="black" if st.get_option("theme.base") == "light" else "white")
+                font=dict(size=14, color=text_color)
             )
 
     else:
@@ -200,26 +208,27 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
         fig_proc.update_yaxes(visible=False)
+        text_color = "black" if st.get_option("theme.base") == "light" else "white"
         for i, row in top_kpis.reset_index(drop=True).iterrows():
             fig_proc.add_annotation(
                 x=0, y=i, text=row['Etiqueta'], xanchor='left', xref='paper', xshift=-200, showarrow=False, align='left',
-                font=dict(size=14)
+                font=dict(size=14, color=text_color)
             )
 
-    # AJUSTES VISUALES FINOS (Texto pequeño, Barras delgadas)
+    # AJUSTES VISUALES
     fig_proc.update_traces(
         texttemplate='%{text:.1f}%', 
         textposition='outside', 
-        textfont_size=13, # 1px más pequeño
+        textfont_size=13, 
         textfont_weight='bold'
     )
     fig_proc.update_layout(
         title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
-        margin=dict(l=210, r=60, t=50, b=50), # Margen derecho aumentado (60)
+        margin=dict(l=210, r=60, t=50, b=50), 
         xaxis_title="", yaxis_title="", 
         height=350, 
-        xaxis_range=[0, 140], # Rango aumentado para que quepa el texto
-        bargap=0.4 # Barras más delgadas (espacio entre ellas más grande)
+        xaxis_range=[0, 140],
+        bargap=0.4
     )
     col_rank1.plotly_chart(fig_proc, use_container_width=True)
 
@@ -236,10 +245,11 @@ if len(df_filtered) > 1:
     )
     
     fig_pil.update_yaxes(visible=False, showticklabels=False)
+    text_color = "black" if st.get_option("theme.base") == "light" else "white"
     for i, row in ranking_pilar.reset_index(drop=True).iterrows():
         fig_pil.add_annotation(
             x=0, y=i, text=row['Etiqueta'], xanchor='left', xref='paper', xshift=-200, showarrow=False, align='left',
-            font=dict(size=14)
+            font=dict(size=14, color=text_color)
         )
 
     fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
@@ -249,7 +259,7 @@ if len(df_filtered) > 1:
         xaxis_title="", yaxis_title="", 
         height=350, 
         xaxis_range=[0, 140],
-        bargap=0.4 # Barras más delgadas
+        bargap=0.4
     )
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     
