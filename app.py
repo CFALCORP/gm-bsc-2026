@@ -141,15 +141,15 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (ESPACIO AMPLIADO) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
     text_color = "black" if st.get_option("theme.base") == "light" else "white"
     
-    # Variables de ajuste estético
-    margen_izq_negativo = -100  # <--- MÁS ESPACIO PARA TEXTO (Antes -65)
-    rango_eje_x = [margen_izq_negativo, 160] # <--- MÁS RANGO A LA DERECHA PARA ACORTAR BARRAS
+    # Variables de ajuste estético (Margen negativo para texto largo)
+    margen_izq_negativo = -100  
+    rango_eje_x = [margen_izq_negativo, 160]
     
     # --- RANKING DE PROCESOS ---
     if proceso_sel == "Todos":
@@ -172,7 +172,7 @@ if len(df_filtered) > 1:
         for i, row in ranking_proceso.iterrows():
             fig_proc.add_annotation(
                 y=row['Proceso'], 
-                x=margen_izq_negativo, # Usamos la nueva variable
+                x=margen_izq_negativo,
                 text=row['Etiqueta'], 
                 xanchor='left', 
                 showarrow=False, align='left',
@@ -198,11 +198,15 @@ if len(df_filtered) > 1:
 
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
     
+    max_val = 135
+    if proceso_sel == "Todos" and not ranking_proceso.empty:
+         max_val = 145
+
     fig_proc.update_layout(
         title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
         margin=dict(l=0, r=50, t=50, b=20),
         xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=rango_eje_x, # Aplicamos el rango nuevo
+        xaxis_range=[-65, 150],
         bargap=0.4,
         showlegend=False
     )
@@ -224,7 +228,7 @@ if len(df_filtered) > 1:
     for i, row in ranking_pilar.iterrows():
         fig_pil.add_annotation(
             y=row['Pilar'], 
-            x=margen_izq_negativo, # Mismo margen amplio para Pilar
+            x=margen_izq_negativo,
             text=row['Etiqueta'], 
             xanchor='left', 
             showarrow=False, align='left',
@@ -236,7 +240,7 @@ if len(df_filtered) > 1:
         title=dict(text="Ranking por Pilar Estratégico", font=dict(size=22), x=0.5, xanchor='center'),
         margin=dict(l=0, r=50, t=50, b=20),
         xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=rango_eje_x, # Aplicamos el rango nuevo
+        xaxis_range=[-65, 150],
         bargap=0.4,
         showlegend=False
     )
@@ -260,9 +264,10 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     format_dict_meta = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
     format_total = {**format_dict_meta, **format_dict_meses}
 
+    # Aquí el cambio CLAVE: vmax=100
     st.dataframe(
         kpis_rojos[cols_alerta_mostrar].style
-        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120)
+        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100) # <--- CAMBIO AQUÍ
         .format(format_total),
         use_container_width=True,
         hide_index=True
@@ -298,11 +303,12 @@ format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
 format_dict_gral = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
 todos_los_formatos = {**format_dict_gral, **format_dict_meses}
 
+# Aquí el otro cambio CLAVE: max_value=100
 column_config_dinamica = {
     "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
     "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
     "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
-    "Cumpl. Año": st.column_config.ProgressColumn("Cumplimiento", format="%.0f%%", min_value=0, max_value=120),
+    "Cumpl. Año": st.column_config.ProgressColumn("Cumplimiento", format="%.0f%%", min_value=0, max_value=100), # <--- CAMBIO AQUÍ
 }
 if mostrar_meses_tabla:
     for m in meses_seleccionados:
@@ -310,7 +316,7 @@ if mostrar_meses_tabla:
 
 st.dataframe(
     df_filtered[cols_mostrar].style
-    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=120)
+    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100) # <--- Y AQUÍ
     .applymap(colorear_estado, subset=['Estado Actual'])
     .format(todos_los_formatos), 
     use_container_width=True,
