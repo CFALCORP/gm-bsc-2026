@@ -40,7 +40,7 @@ def load_data():
 
 df_raw = load_data()
 
-# --- 3. LIMPIEZA Y NORMALIZACIÓN DE NÚMEROS ---
+# --- 3. LIMPIEZA Y NORMALIZACIÓN ---
 df = df_raw.copy()
 
 def normalizar_porcentaje(x):
@@ -78,7 +78,6 @@ with st.sidebar:
     
     st.divider()
     
-    # 4.1 FILTRO DE TIEMPO
     st.subheader("📅 Filtro de Tiempo")
     meses_disponibles = [m for m in MESES_OFICIALES if m in df.columns]
     
@@ -93,7 +92,6 @@ with st.sidebar:
 
     st.divider()
 
-    # 4.2 FILTROS GENERALES
     st.header("🔍 Filtros Generales")
     lista_procesos = ["Todos"] + sorted(list(df['Proceso'].unique()))
     proceso_sel = st.selectbox("📂 1. Proceso:", lista_procesos)
@@ -125,12 +123,8 @@ if len(df_filtered) > 1:
     promedio_cumpl = df_filtered['Cumpl. Año'].mean()
     total_kpis = len(df_filtered)
     
-    en_meta = df_filtered[
-        df_filtered['Estado Actual'].str.lower() == 'cumple'
-    ]
-    fuera_meta = df_filtered[
-        df_filtered['Estado Actual'].str.lower() != 'cumple'
-    ]
+    en_meta = df_filtered[df_filtered['Estado Actual'].str.lower() == 'cumple']
+    fuera_meta = df_filtered[df_filtered['Estado Actual'].str.lower() != 'cumple']
     
     if not df_filtered.empty:
         idx_mejor = df_filtered['Cumpl. Año'].idxmax()
@@ -147,17 +141,14 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL (CORREGIDO) 🏆
+    # 5.2 RANKINGS TOP PROFESIONAL (DISEÑO AMPLIADO) 🏆
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
-    
-    # Determinamos color de texto según tema (para modo oscuro/claro)
     text_color = "black" if st.get_option("theme.base") == "light" else "white"
     
     # --- RANKING DE PROCESOS ---
     if proceso_sel == "Todos":
-        # FÓRMULA ESTRICTA: Solo cuenta si es exactamente "cumple"
         ranking_proceso = df_filtered.groupby('Proceso').apply(
             lambda x: ((x['Estado Actual'].str.lower() == 'cumple').sum() / len(x)) * 100
         ).reset_index(name='Efectividad')
@@ -172,21 +163,20 @@ if len(df_filtered) > 1:
             color_discrete_sequence=['#00C4FF']
         )
         
-        # TRUCO MAESTRO: Anclamos la etiqueta al NOMBRE DEL PROCESO (y), no al número de fila
+        # Ocultamos eje Y y ponemos etiquetas en el área negativa
         fig_proc.update_yaxes(visible=False, showticklabels=False, categoryorder='total ascending')
         
         for i, row in ranking_proceso.iterrows():
             fig_proc.add_annotation(
-                y=row['Proceso'], # <--- AQUÍ ESTÁ LA MAGIA (Anclaje seguro)
-                x=0, text=row['Etiqueta'], xanchor='left', xref='x', yref='y', xshift=-10, showarrow=False, align='left',
+                y=row['Proceso'], 
+                x=-65, # Posición fija a la izquierda extrema
+                text=row['Etiqueta'], 
+                xanchor='left', # Alineado a la izquierda
+                showarrow=False, align='left',
                 font=dict(size=14, color=text_color)
             )
-            
-        # Ajustamos el margen izquierdo dinámicamente para que quepan los nombres largos
-        margin_left = 220
-        
+
     else:
-        # Top 5 Indicadores
         top_kpis = df_filtered.nlargest(5, 'Cumpl. Año').sort_values(by='Cumpl. Año', ascending=True)
         top_kpis['Ranking'] = range(len(top_kpis), 0, -1)
         top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:25] + "..."
@@ -199,32 +189,26 @@ if len(df_filtered) > 1:
         fig_proc.update_yaxes(visible=False, categoryorder='total ascending')
         for i, row in top_kpis.iterrows():
             fig_proc.add_annotation(
-                y=row['Indicador'], 
-                x=0, text=row['Etiqueta'], xanchor='left', xref='x', yref='y', xshift=-10, showarrow=False, align='left',
+                y=row['Indicador'], x=-65, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
                 font=dict(size=14, color=text_color)
             )
-        margin_left = 250
 
-    # AJUSTES VISUALES UNIFICADOS
+    # AJUSTES VISUALES: Rango extendido y Barras más finas
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
     
-    # Calculamos rango máximo para que quepa todo
-    max_val = 110 # Default
-    if not ranking_proceso.empty if proceso_sel == "Todos" else not top_kpis.empty:
-         # Simplemente un poco más de 100 para espacio
-         max_val = 135
+    max_val = 135
+    if proceso_sel == "Todos" and not ranking_proceso.empty:
+         max_val = 145 # Un poco más de espacio
 
     fig_proc.update_layout(
         title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
-        margin=dict(l=0, r=50, t=50, b=20), # Margen izq en 0 porque usamos anotaciones 'x'
-        xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=[-50, max_val], # Empezamos en negativo para dar espacio al texto a la izquierda
-        bargap=0.3,
+        margin=dict(l=0, r=50, t=50, b=20),
+        xaxis_title="", yaxis_title="", 
+        height=400, 
+        xaxis_range=[-65, 150], # Rango negativo amplio para texto, positivo para acortar barra
+        bargap=0.4,
         showlegend=False
     )
-    # Movemos las anotaciones para que parezcan una lista a la izquierda
-    fig_proc.update_annotations(xshift=0, x=-45) # Coordenada X negativa fija
-    
     col_rank1.plotly_chart(fig_proc, use_container_width=True)
 
     # --- RANKING DE PILARES ---
@@ -242,8 +226,11 @@ if len(df_filtered) > 1:
     fig_pil.update_yaxes(visible=False, showticklabels=False, categoryorder='total ascending')
     for i, row in ranking_pilar.iterrows():
         fig_pil.add_annotation(
-            y=row['Pilar'], # Anclaje seguro
-            x=0, text=row['Etiqueta'], xanchor='left', xref='x', yref='y', showarrow=False, align='left',
+            y=row['Pilar'], 
+            x=-65, # Mismo margen amplio para Pilar
+            text=row['Etiqueta'], 
+            xanchor='left', 
+            showarrow=False, align='left',
             font=dict(size=14, color=text_color)
         )
 
@@ -252,17 +239,15 @@ if len(df_filtered) > 1:
         title=dict(text="Ranking por Pilar Estratégico", font=dict(size=22), x=0.5, xanchor='center'),
         margin=dict(l=0, r=50, t=50, b=20),
         xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=[-50, 135], # Espacio negativo para el texto
-        bargap=0.3,
+        xaxis_range=[-65, 150], # Rango consistente
+        bargap=0.4,
         showlegend=False
     )
-    fig_pil.update_annotations(xshift=0, x=-45)
     
     col_rank2.plotly_chart(fig_pil, use_container_width=True)
     st.markdown("---")
 
-# --- 6. SECCIÓN DE ALERTAS ---
-# Fórmula estricta también aquí
+# --- 6. ALERTAS ---
 kpis_rojos = df_filtered[df_filtered['Estado Actual'].str.lower() != 'cumple']
 
 if indicador_sel == "Todos" and len(kpis_rojos) > 0:
@@ -272,10 +257,7 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     cols_alerta_base = ['Indicador', 'Proceso', 'Meta']
     cols_alerta_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
     
-    if mostrar_meses_tabla:
-        cols_alerta_mostrar = cols_alerta_base + meses_seleccionados + cols_alerta_final
-    else:
-        cols_alerta_mostrar = cols_alerta_base + cols_alerta_final
+    cols_alerta_mostrar = cols_alerta_base + (meses_seleccionados if mostrar_meses_tabla else []) + cols_alerta_final
     
     format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
     format_dict_meta = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
@@ -290,22 +272,15 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     )
     st.divider()
 
-# --- 7. GRÁFICO TENDENCIA ---
+# --- 7. TENDENCIA ---
 if indicador_sel != "Todos" and len(df_filtered) == 1:
     row = df_filtered.iloc[0]
     st.subheader(f"📈 Tendencia Mensual: {row['Indicador']}")
-    vals = []
-    meses_grafica = []
-    for m in meses_seleccionados:
-        if m in row:
-            vals.append(row[m])
-        else:
-            vals.append(0)
-        meses_grafica.append(m)
-            
+    vals = [row[m] if m in row else 0 for m in meses_seleccionados]
+    
     fig_ind = go.Figure()
     fig_ind.add_trace(go.Scatter(
-        x=meses_grafica, y=vals, mode='lines+markers+text',
+        x=meses_seleccionados, y=vals, mode='lines+markers+text',
         name='Real', line=dict(color='#00C4FF', width=3),
         text=[f"{v:.2f}%" for v in vals], textposition="top center"
     ))
@@ -313,20 +288,14 @@ if indicador_sel != "Todos" and len(df_filtered) == 1:
     fig_ind.update_layout(height=350, margin=dict(t=10, b=10))
     st.plotly_chart(fig_ind, use_container_width=True)
 
-# --- 8. TABLA DE DETALLE ---
+# --- 8. DETALLE ---
 st.subheader("📋 Detalle de Indicadores")
 cols_base = ['Indicador', 'Meta']
 cols_final = ['Prom. Año', 'Cumpl. Año', 'Estado Actual']
-
-if mostrar_meses_tabla:
-    cols_mostrar = cols_base + meses_seleccionados + cols_final
-else:
-    cols_mostrar = cols_base + cols_final
+cols_mostrar = cols_base + (meses_seleccionados if mostrar_meses_tabla else []) + cols_final
 
 def colorear_estado(val):
-    # Lógica estricta para colorear en la tabla también
-    color = '#2e7d32' if str(val).lower() == 'cumple' else '#d32f2f'
-    return f'color: {color}; font-weight: bold'
+    return f'color: {"#2e7d32" if str(val).lower() == "cumple" else "#d32f2f"}; font-weight: bold'
 
 format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
 format_dict_gral = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
@@ -338,7 +307,6 @@ column_config_dinamica = {
     "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
     "Cumpl. Año": st.column_config.ProgressColumn("Cumplimiento", format="%.0f%%", min_value=0, max_value=120),
 }
-
 if mostrar_meses_tabla:
     for m in meses_seleccionados:
         column_config_dinamica[m] = st.column_config.NumberColumn(m, format="%.2f%%")
@@ -353,19 +321,15 @@ st.dataframe(
     column_config=column_config_dinamica
 )
 
-# --- 9. GRÁFICO COMPARATIVO ---
+# --- 9. COMPARATIVO ---
 if not df_filtered.empty:
     st.subheader("📊 Comparativo: Meta vs Resultado")
     fig_bar = go.Figure()
     fig_bar.add_trace(go.Bar(
-        x=df_filtered['Indicador'], y=df_filtered['Meta'], 
-        name='Meta', marker_color='lightgray', 
-        text=df_filtered['Meta'], texttemplate='%{text:.2f}%'
+        x=df_filtered['Indicador'], y=df_filtered['Meta'], name='Meta', marker_color='lightgray', text=df_filtered['Meta'], texttemplate='%{text:.2f}%'
     ))
     fig_bar.add_trace(go.Bar(
-        x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], 
-        name='Resultado Real', marker_color='#00C4FF', 
-        text=df_filtered['Prom. Año'], texttemplate='%{text:.2f}%'
+        x=df_filtered['Indicador'], y=df_filtered['Prom. Año'], name='Resultado Real', marker_color='#00C4FF', text=df_filtered['Prom. Año'], texttemplate='%{text:.2f}%'
     ))
     fig_bar.update_layout(barmode='group', height=500, xaxis_tickangle=-45)
     st.plotly_chart(fig_bar, use_container_width=True)
