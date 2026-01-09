@@ -145,9 +145,10 @@ if len(df_filtered) > 1:
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
-    text_color = "black" if st.get_option("theme.base") == "light" else "white"
+    # ELIMINAMOS LA LÓGICA MANUAL DE COLOR
+    # text_color = "black" if st.get_option("theme.base") == "light" else "white" (BORRADO)
     
-    # Variables de ajuste estético (Margen negativo para texto largo)
+    # Variables de ajuste estético
     margen_izq_negativo = -100  
     rango_eje_x = [margen_izq_negativo, 160]
     
@@ -176,7 +177,8 @@ if len(df_filtered) > 1:
                 text=row['Etiqueta'], 
                 xanchor='left', 
                 showarrow=False, align='left',
-                font=dict(size=14, color=text_color)
+                # QUITAMOS 'color' PARA QUE SEA AUTOMÁTICO
+                font=dict(size=14) 
             )
 
     else:
@@ -193,7 +195,7 @@ if len(df_filtered) > 1:
         for i, row in top_kpis.iterrows():
             fig_proc.add_annotation(
                 y=row['Indicador'], x=margen_izq_negativo, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
-                font=dict(size=14, color=text_color)
+                font=dict(size=14) # Color automático
             )
 
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
@@ -232,7 +234,7 @@ if len(df_filtered) > 1:
             text=row['Etiqueta'], 
             xanchor='left', 
             showarrow=False, align='left',
-            font=dict(size=14, color=text_color)
+            font=dict(size=14) # Color automático
         )
 
     fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
@@ -264,10 +266,9 @@ if indicador_sel == "Todos" and len(kpis_rojos) > 0:
     format_dict_meta = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
     format_total = {**format_dict_meta, **format_dict_meses}
 
-    # Aquí el cambio CLAVE: vmax=100
     st.dataframe(
         kpis_rojos[cols_alerta_mostrar].style
-        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100) # <--- CAMBIO AQUÍ
+        .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100)
         .format(format_total),
         use_container_width=True,
         hide_index=True
@@ -303,12 +304,11 @@ format_dict_meses = {m: "{:.2f}%" for m in meses_seleccionados}
 format_dict_gral = {'Meta': "{:.2f}%", 'Prom. Año': "{:.2f}%", 'Cumpl. Año': "{:.0f}%"}
 todos_los_formatos = {**format_dict_gral, **format_dict_meses}
 
-# Aquí el otro cambio CLAVE: max_value=100
 column_config_dinamica = {
     "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
     "Meta": st.column_config.NumberColumn("Meta", format="%.2f%%"),
     "Prom. Año": st.column_config.NumberColumn("Resultado Año", format="%.2f%%"),
-    "Cumpl. Año": st.column_config.ProgressColumn("Cumplimiento", format="%.0f%%", min_value=0, max_value=100), # <--- CAMBIO AQUÍ
+    "Cumpl. Año": st.column_config.ProgressColumn("Cumplimiento", format="%.0f%%", min_value=0, max_value=100),
 }
 if mostrar_meses_tabla:
     for m in meses_seleccionados:
@@ -316,7 +316,7 @@ if mostrar_meses_tabla:
 
 st.dataframe(
     df_filtered[cols_mostrar].style
-    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100) # <--- Y AQUÍ
+    .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100)
     .applymap(colorear_estado, subset=['Estado Actual'])
     .format(todos_los_formatos), 
     use_container_width=True,
