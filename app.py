@@ -141,14 +141,10 @@ if len(df_filtered) > 1:
     
     st.markdown("---")
     
-    # 5.2 RANKINGS TOP PROFESIONAL
+    # 5.2 RANKINGS TOP PROFESIONAL (VERSIÓN ROBUSTA) 🏆
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
-    
-    # --- AJUSTE ESTÉTICO ---
-    margen_izq_negativo = -100  
-    rango_eje_x = [margen_izq_negativo, 160]
     
     # --- RANKING DE PROCESOS ---
     if proceso_sel == "Todos":
@@ -160,54 +156,50 @@ if len(df_filtered) > 1:
         ranking_proceso['Ranking'] = range(len(ranking_proceso), 0, -1)
         ranking_proceso['Etiqueta'] = ranking_proceso['Ranking'].astype(str) + ". " + ranking_proceso['Proceso']
         
+        # USAMOS 'Etiqueta' COMO EL EJE Y DIRECTAMENTE (Método Seguro)
         fig_proc = px.bar(
-            ranking_proceso, x='Efectividad', y='Proceso', orientation='h',
-            title="Ranking por Proceso (% Efectividad)", text='Efectividad',
+            ranking_proceso, 
+            x='Efectividad', 
+            y='Etiqueta', # <--- El nombre ya está aquí
+            orientation='h',
+            title="Ranking por Proceso (% Efectividad)", 
+            text='Efectividad',
             color_discrete_sequence=['#00C4FF']
         )
         
-        fig_proc.update_yaxes(visible=False, showticklabels=False, categoryorder='total ascending')
-        
-        for i, row in ranking_proceso.iterrows():
-            fig_proc.add_annotation(
-                y=row['Proceso'], 
-                x=margen_izq_negativo,
-                text=row['Etiqueta'], 
-                xanchor='left', 
-                showarrow=False, align='left',
-                # AQUÍ FORZAMOS EL COLOR BLANCO PARA MODO DARK
-                font=dict(size=14, color="white") 
-            )
-
     else:
         top_kpis = df_filtered.nlargest(5, 'Cumpl. Año').sort_values(by='Cumpl. Año', ascending=True)
         top_kpis['Ranking'] = range(len(top_kpis), 0, -1)
         top_kpis['Etiqueta'] = top_kpis['Ranking'].astype(str) + ". " + top_kpis['Indicador'].str[:25] + "..."
         
         fig_proc = px.bar(
-            top_kpis, x='Cumpl. Año', y='Indicador', orientation='h',
-            title=f"Top 5 Indicadores ({proceso_sel})", text='Cumpl. Año',
+            top_kpis, 
+            x='Cumpl. Año', 
+            y='Etiqueta', # <--- El nombre ya está aquí
+            orientation='h',
+            title=f"Top 5 Indicadores ({proceso_sel})", 
+            text='Cumpl. Año',
             color_discrete_sequence=['#00C4FF']
         )
-        fig_proc.update_yaxes(visible=False, categoryorder='total ascending')
-        for i, row in top_kpis.iterrows():
-            fig_proc.add_annotation(
-                y=row['Indicador'], x=margen_izq_negativo, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
-                # FORZADO A BLANCO
-                font=dict(size=14, color="white") 
-            )
 
+    # AJUSTES VISUALES: EJE Y VISIBLE Y AUTOMÁTICO
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
     
-    max_val = 135
-    if proceso_sel == "Todos" and not ranking_proceso.empty:
-         max_val = 145
-
     fig_proc.update_layout(
         title=dict(text=fig_proc.layout.title.text, font=dict(size=22), x=0.5, xanchor='center'),
-        margin=dict(l=0, r=50, t=50, b=20),
-        xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=[-65, 150],
+        margin=dict(t=50, b=20), # Márgenes limpios
+        # ACTIVAMOS EL EJE Y, LO PONEMOS VISIBLE Y CON MARGEN AUTOMÁTICO
+        yaxis=dict(
+            visible=True, 
+            showticklabels=True, 
+            automargin=True, # <--- Esto evita que los textos largos se corten
+            tickfont=dict(size=14) # Tamaño legible
+        ),
+        xaxis_title="", 
+        xaxis=dict(showticklabels=False), # Ocultamos números de abajo para limpieza
+        height=400, 
+        # Rango 0 a 130 para que la barra de 100% no pegue al borde derecho
+        xaxis_range=[0, 130],
         bargap=0.4,
         showlegend=False
     )
@@ -220,29 +212,30 @@ if len(df_filtered) > 1:
     ranking_pilar['Etiqueta'] = ranking_pilar['Ranking'].astype(str) + ". " + ranking_pilar['Pilar']
 
     fig_pil = px.bar(
-        ranking_pilar, x='Cumpl. Año', y='Pilar', orientation='h',
-        title="Ranking por Pilar (Promedio)", text='Cumpl. Año',
+        ranking_pilar, 
+        x='Cumpl. Año', 
+        y='Etiqueta', # <--- Eje Y Nativo
+        orientation='h',
+        title="Ranking por Pilar (Promedio)", 
+        text='Cumpl. Año',
         color_discrete_sequence=['#00C4FF']
     )
     
-    fig_pil.update_yaxes(visible=False, showticklabels=False, categoryorder='total ascending')
-    for i, row in ranking_pilar.iterrows():
-        fig_pil.add_annotation(
-            y=row['Pilar'], 
-            x=margen_izq_negativo,
-            text=row['Etiqueta'], 
-            xanchor='left', 
-            showarrow=False, align='left',
-            # FORZADO A BLANCO
-            font=dict(size=14, color="white") 
-        )
-
     fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
+    
     fig_pil.update_layout(
         title=dict(text="Ranking por Pilar Estratégico", font=dict(size=22), x=0.5, xanchor='center'),
-        margin=dict(l=0, r=50, t=50, b=20),
-        xaxis_title="", yaxis_title="", height=400, 
-        xaxis_range=[-65, 150],
+        margin=dict(t=50, b=20),
+        yaxis=dict(
+            visible=True, 
+            showticklabels=True, 
+            automargin=True, # <--- Magia para textos largos
+            tickfont=dict(size=14)
+        ),
+        xaxis_title="", 
+        xaxis=dict(showticklabels=False),
+        height=400, 
+        xaxis_range=[0, 130],
         bargap=0.4,
         showlegend=False
     )
