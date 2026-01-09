@@ -145,10 +145,8 @@ if len(df_filtered) > 1:
     st.title("🏆 Top Desempeño")
     
     col_rank1, col_rank2 = st.columns(2)
-    # ELIMINAMOS LA LÓGICA MANUAL DE COLOR
-    # text_color = "black" if st.get_option("theme.base") == "light" else "white" (BORRADO)
     
-    # Variables de ajuste estético
+    # --- AJUSTE ESTÉTICO ---
     margen_izq_negativo = -100  
     rango_eje_x = [margen_izq_negativo, 160]
     
@@ -177,8 +175,8 @@ if len(df_filtered) > 1:
                 text=row['Etiqueta'], 
                 xanchor='left', 
                 showarrow=False, align='left',
-                # QUITAMOS 'color' PARA QUE SEA AUTOMÁTICO
-                font=dict(size=14) 
+                # AQUÍ FORZAMOS EL COLOR BLANCO PARA MODO DARK
+                font=dict(size=14, color="white") 
             )
 
     else:
@@ -195,7 +193,8 @@ if len(df_filtered) > 1:
         for i, row in top_kpis.iterrows():
             fig_proc.add_annotation(
                 y=row['Indicador'], x=margen_izq_negativo, text=row['Etiqueta'], xanchor='left', showarrow=False, align='left',
-                font=dict(size=14) # Color automático
+                # FORZADO A BLANCO
+                font=dict(size=14, color="white") 
             )
 
     fig_proc.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
@@ -234,7 +233,8 @@ if len(df_filtered) > 1:
             text=row['Etiqueta'], 
             xanchor='left', 
             showarrow=False, align='left',
-            font=dict(size=14) # Color automático
+            # FORZADO A BLANCO
+            font=dict(size=14, color="white") 
         )
 
     fig_pil.update_traces(texttemplate='%{text:.1f}%', textposition='outside', textfont_size=13, textfont_weight='bold')
