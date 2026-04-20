@@ -310,7 +310,7 @@ if mostrar_meses_tabla:
 st.dataframe(
     df_filtered[cols_mostrar].style
     .bar(subset=['Cumpl. Año'], color='#00C4FF', vmin=0, vmax=100)
-    .applymap(colorear_estado, subset=['Estado Actual'])
+    .map(colorear_estado, subset=['Estado Actual'])
     .format(todos_los_formatos), 
     use_container_width=True,
     hide_index=True,
