@@ -120,11 +120,12 @@ st.divider()
 if len(df_filtered) > 1:
     col1, col2, col3, col4 = st.columns(4)
     
-    promedio_cumpl = df_filtered['Cumpl. Año'].mean()
     total_kpis = len(df_filtered)
-    
     en_meta = df_filtered[df_filtered['Estado Actual'].str.lower() == 'cumple']
     fuera_meta = df_filtered[df_filtered['Estado Actual'].str.lower() != 'cumple']
+    
+    # NUEVA FÓRMULA: (Indicadores cumpliendo / Total de indicadores) * 100
+    promedio_cumpl = (len(en_meta) / total_kpis) * 100 if total_kpis > 0 else 0.0
     
     if not df_filtered.empty:
         idx_mejor = df_filtered['Cumpl. Año'].idxmax()
